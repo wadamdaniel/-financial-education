@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f7f9f8">
-<title>Financial Education v5.1</title>
+<title>Financial Education v5.2</title>
 <style>
 :root{--bg:#f7f9f8;--card:#fff;--text:#17211f;--muted:#6b7975;--line:#dce5e2;--teal:#027658;--teal2:#0d9973;--soft:#edf7f3;--bad:#b42318}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.app{max-width:1180px;margin:auto;padding:18px}
@@ -31,6 +31,12 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;bord
 .exam-scope{white-space:pre-wrap;background:var(--soft);border-radius:10px;padding:10px}.law-empty{padding:30px;text-align:center;color:var(--muted)}
 @media(max-width:850px){.law-layout{grid-template-columns:1fr}.law-side{order:-1}.law-pdf{height:560px}}
 
+
+.edit-panel{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fbfcfc;margin-top:12px}
+.edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.edit-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+@media(max-width:700px){.edit-grid{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body><div class="app">
@@ -45,7 +51,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;bord
 
 <section id="learn" class="active"><div class="helperWrap" id="helperWrap"><div>
 <div class="card"><div class="row"><div class="grow"><label>Dział</label><select id="learnCat"></select></div><div class="grow"><label>Tryb</label><select id="mode"><option value="all">Wszystkie</option><option value="wrong">Tylko błędne</option><option value="star">Trudne ★</option><option value="unseen">Nieodpowiedziane</option></select></div></div><div class="row" style="margin-top:10px"><button class="primary" id="draw">Losuj pytanie</button><button id="next">Następne</button><button id="star">☆ Trudne</button><button id="help">Pomoce</button></div></div>
-<div class="card" id="question"><span class="muted">Kliknij „Losuj pytanie”.</span></div>
+<div class="card" id="question"><span class="muted">Kliknij „Losuj pytanie”.</span></div><div id="learnEditor"></div>
 </div>
 <aside class="card helper"><div class="row"><b>Materiały pomocnicze</b><button id="closeHelp">Zamknij</button></div><div class="row" style="margin-top:10px"><div class="grow"><label>Dział</label><select id="helpCat"></select></div><div class="grow"><label>Etap</label><select id="helpStage"><option>Pomoce naukowe</option><option>Wszystkie</option><option>I etap</option><option>II etap</option><option>III etap</option><option>Inne</option></select></div></div><div id="helpList"></div><div id="viewer" class="viewer"><div class="muted" style="padding:14px">Wybierz materiał.</div></div></aside>
 </div></section>
@@ -112,10 +118,87 @@ function cats(){return [...new Set([...CATS,...db.map(q=>q.category).filter(Bool
 function fill(id,all=true){let el=$(id),v=el.value;el.innerHTML=(all?["Wszystkie",...cats()]:cats()).map(x=>`<option>${esc(x)}</option>`).join("");if([...el.options].some(o=>o.value===v))el.value=v}
 function refresh(){["learnCat","importCat","matCat","addCat","baseCat"].forEach((id,i)=>fill(id,i!==1&&i!==2&&i!==3)); $("topCount").textContent=db.length;$("sQuestions").textContent=db.length;renderBase();renderStats()}
 function pool(){let c=$("learnCat").value,m=$("mode").value;return db.filter(q=>(c==="Wszystkie"||q.category===c)&&(m==="all"||m==="wrong"&&(q.stats?.wrong||0)>0||m==="star"&&q.starred||m==="unseen"&&!(q.stats?.attempts)))}
-function draw(){let p=pool();if(!p.length){$("question").innerHTML='<span class="muted">Brak pytań dla tego filtra.</span>';return}current=p[Math.floor(Math.random()*p.length)];selected=new Set();answered=false;renderQ()}
-function renderQ(){if(!current)return;let keys=Object.keys(current.answers||{});$("question").innerHTML=`<span class="tag">${esc(current.category)}</span><h2>${esc(current.question)}</h2>${keys.map(k=>`<button class="answer" data-a="${k}"><b>${k}.</b> ${esc(current.answers[k])}</button>`).join("")}<div class="row"><button class="primary" id="check">Sprawdź</button></div><div id="result"></div>`;document.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{if(answered)return;let k=b.dataset.a;selected.has(k)?selected.delete(k):selected.add(k);b.classList.toggle("sel")});$("check").onclick=check}
+function draw(){if($("learnEditor"))$("learnEditor").innerHTML="";let p=pool();if(!p.length){$("question").innerHTML='<span class="muted">Brak pytań dla tego filtra.</span>';return}current=p[Math.floor(Math.random()*p.length)];selected=new Set();answered=false;renderQ()}
+function renderQ(){if(!current)return;let keys=Object.keys(current.answers||{});$("question").innerHTML=`<span class="tag">${esc(current.category)}</span><h2>${esc(current.question)}</h2>${keys.map(k=>`<button class="answer" data-a="${k}"><b>${k}.</b> ${esc(current.answers[k])}</button>`).join("")}<div class="row"><button class="primary" id="check">Sprawdź</button><button id="editCurrent">Edytuj pytanie</button></div><div id="result"></div>`;document.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{if(answered)return;let k=b.dataset.a;selected.has(k)?selected.delete(k):selected.add(k);b.classList.toggle("sel")});$("check").onclick=check;$("editCurrent").onclick=openLearnEditor}
 function check(){if(!current||answered)return;answered=true;let got=[...selected].sort().join(""),ok=got===String(current.correct||"").split("").sort().join("");current.stats=current.stats||{attempts:0,correct:0,wrong:0};current.stats.attempts++;ok?current.stats.correct++:current.stats.wrong++;document.querySelectorAll("[data-a]").forEach(b=>{let k=b.dataset.a;if(String(current.correct).includes(k))b.classList.add("good");else if(selected.has(k))b.classList.add("bad")});$("result").innerHTML=`<div class="expl"><b>${ok?"Dobrze":"Niepoprawnie"}</b><br>Prawidłowa: <b>${esc(current.correct)}</b>${current.explanation?`<p>${esc(current.explanation)}</p>`:""}</div>`;save()}
-function renderBase(){let c=$("baseCat").value||"Wszystkie",s=($("search").value||"").toLowerCase();let a=db.filter(q=>(c==="Wszystkie"||q.category===c)&&(!s||(q.question+" "+q.explanation).toLowerCase().includes(s)));$("baseList").innerHTML=`<p class="muted">Znaleziono: ${a.length}</p><table><thead><tr><th>Dział</th><th>Pytanie</th><th></th></tr></thead><tbody>${a.slice(0,300).map(q=>`<tr><td><span class="tag">${esc(q.category)}</span></td><td>${esc(q.question.slice(0,220))}</td><td><button data-star="${q.id}">${q.starred?"★":"☆"}</button></td></tr>`).join("")}</tbody></table>`;document.querySelectorAll("[data-star]").forEach(b=>b.onclick=()=>{let q=db.find(x=>x.id===b.dataset.star);if(q){q.starred=!q.starred;save()}})}
+
+function questionById(id){return db.find(q=>q.id===id)}
+function splitQuestionText(q){
+  const raw=String(q.question||"").replace(/\r/g," ");
+  const re=/\bA[\s\.\:\)\-]+([\s\S]*?)\bB[\s\.\:\)\-]+([\s\S]*?)\bC[\s\.\:\)\-]+([\s\S]*?)\bD[\s\.\:\)\-]+([\s\S]*)$/i;
+  const m=raw.match(re);
+  if(!m)return false;
+  const firstA=raw.search(/\bA[\s\.\:\)\-]+/i);
+  if(firstA<0)return false;
+  q.question=raw.slice(0,firstA).trim();
+  q.answers={
+    A:m[1].trim().replace(/[;,\s]+$/,""),
+    B:m[2].trim().replace(/[;,\s]+$/,""),
+    C:m[3].trim().replace(/[;,\s]+$/,""),
+    D:m[4].trim()
+  };
+  return true;
+}
+function editForm(q,hostId){
+  const host=$(hostId); if(!host||!q)return;
+  host.innerHTML=`<div class="edit-panel">
+    <h3>Edytuj pytanie</h3>
+    <label>Dział</label><select id="${hostId}_cat">${cats().map(c=>`<option ${c===q.category?"selected":""}>${esc(c)}</option>`).join("")}</select>
+    <label style="margin-top:8px">Treść pytania</label><textarea id="${hostId}_q">${esc(q.question)}</textarea>
+    <div class="edit-grid">
+      <div><label>A</label><input id="${hostId}_A" type="text" value="${esc(q.answers?.A||"")}"></div>
+      <div><label>B</label><input id="${hostId}_B" type="text" value="${esc(q.answers?.B||"")}"></div>
+      <div><label>C</label><input id="${hostId}_C" type="text" value="${esc(q.answers?.C||"")}"></div>
+      <div><label>D</label><input id="${hostId}_D" type="text" value="${esc(q.answers?.D||"")}"></div>
+    </div>
+    <label style="margin-top:8px">Prawidłowa odpowiedź, np. B albo ACD</label>
+    <input id="${hostId}_correct" type="text" value="${esc(q.correct||"")}">
+    <label style="margin-top:8px">Wyjaśnienie</label><textarea id="${hostId}_ex">${esc(q.explanation||"")}</textarea>
+    <div class="edit-actions">
+      <button class="primary" id="${hostId}_save">Zapisz</button>
+      <button id="${hostId}_split">Rozdziel automatycznie</button>
+      <button id="${hostId}_cancel">Anuluj</button>
+      <button id="${hostId}_delete" style="color:var(--bad)">Usuń pytanie</button>
+    </div>
+    <div id="${hostId}_info" class="muted small"></div>
+  </div>`;
+  $(`${hostId}_save`).onclick=()=>{
+    q.category=$(`${hostId}_cat`).value;
+    q.question=$(`${hostId}_q`).value.trim();
+    q.answers={A:$(`${hostId}_A`).value.trim(),B:$(`${hostId}_B`).value.trim(),C:$(`${hostId}_C`).value.trim(),D:$(`${hostId}_D`).value.trim()};
+    Object.keys(q.answers).forEach(k=>{if(!q.answers[k])delete q.answers[k]});
+    q.correct=$(`${hostId}_correct`).value.toUpperCase().replace(/[^ABCD]/g,"");
+    q.explanation=$(`${hostId}_ex`).value.trim();
+    save();
+    $(`${hostId}_info`).textContent="Zapisano.";
+    if(current&&current.id===q.id)renderQ();
+    renderBase();
+  };
+  $(`${hostId}_split`).onclick=()=>{
+    q.question=$(`${hostId}_q`).value;
+    const ok=splitQuestionText(q);
+    if(!ok){$(`${hostId}_info`).textContent="Nie udało się automatycznie rozpoznać A/B/C/D.";return}
+    $(`${hostId}_q`).value=q.question;
+    ["A","B","C","D"].forEach(k=>$(`${hostId}_${k}`).value=q.answers[k]||"");
+    $(`${hostId}_info`).textContent="Rozdzielono. Sprawdź pola i kliknij Zapisz.";
+  };
+  $(`${hostId}_cancel`).onclick=()=>{host.innerHTML=""};
+  $(`${hostId}_delete`).onclick=()=>{
+    if(confirm("Usunąć to pytanie?")){
+      db=db.filter(x=>x.id!==q.id);
+      if(current&&current.id===q.id){current=null;$("question").innerHTML='<span class="muted">Pytanie usunięte. Wylosuj następne.</span>'}
+      host.innerHTML="";save();renderBase();
+    }
+  };
+}
+function openLearnEditor(){if(current)editForm(current,"learnEditor")}
+window.openBaseEditor=id=>{
+  const q=questionById(id); if(!q)return;
+  const row=document.querySelector(`[data-editbox="${id}"]`);
+  if(row)editForm(q,`edit_${id}`);
+}
+
+function renderBase(){let c=$("baseCat").value||"Wszystkie",s=($("search").value||"").toLowerCase();let a=db.filter(q=>(c==="Wszystkie"||q.category===c)&&(!s||(q.question+" "+q.explanation).toLowerCase().includes(s)));$("baseList").innerHTML=`<p class="muted">Znaleziono: ${a.length}</p><table><thead><tr><th>Dział</th><th>Pytanie</th><th>Akcje</th></tr></thead><tbody>${a.slice(0,300).map(q=>`<tr><td><span class="tag">${esc(q.category)}</span></td><td>${esc(q.question.slice(0,220))}</td><td><button data-star="${q.id}">${q.starred?"★":"☆"}</button> <button data-edit="${q.id}">Edytuj</button></td></tr><tr><td colspan="3"><div id="edit_${q.id}" data-editbox="${q.id}"></div></td></tr>`).join("")}</tbody></table>`;document.querySelectorAll("[data-star]").forEach(b=>b.onclick=()=>{let q=db.find(x=>x.id===b.dataset.star);if(q){q.starred=!q.starred;save()}});document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>window.openBaseEditor(b.dataset.edit))}
 function renderStats(){let at=db.reduce((n,q)=>n+(q.stats?.attempts||0),0),co=db.reduce((n,q)=>n+(q.stats?.correct||0),0);$("sAnswers").textContent=at;$("sAcc").textContent=at?Math.round(co/at*100)+"%":"0%";$("sStar").textContent=db.filter(q=>q.starred).length;$("sCats").innerHTML="<h3>Działy</h3>"+cats().map(c=>`<p><span class="tag">${esc(c)}</span> <b>${db.filter(q=>q.category===c).length}</b></p>`).join("")}
 function parseFR(t,cat){let out=[];for(const m of t.matchAll(/<q>([\s\S]*?)<\/q>\s*<a>([\s\S]*?)<\/a>/gi)){let raw=m[1].replace(/<[^>]+>/g,"").trim(),ar=m[2].replace(/<[^>]+>/g,"").trim(),ans={},ql=[];for(const line of raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean)){let z=line.match(/^([A-Da-d])\s*(?:[):.;]|[-–—])\s*(.+)$/);z?ans[z[1].toUpperCase()]=z[2]:ql.push(line)}let cm=ar.match(/(?:Prawidłowa\s*:?\s*)?([A-D]{1,4})\b/i);out.push(norm({category:cat,question:ql.join("\n")||raw,answers:ans,correct:cm?cm[1].toUpperCase():"",explanation:ar,source:"FullRecall"}))}return out}
 

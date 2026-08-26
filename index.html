@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f7f9f8">
-<title>Financial Education v5.3</title>
+<title>Financial Education v5.4</title>
 <style>
 :root{--bg:#f7f9f8;--card:#fff;--text:#17211f;--muted:#6b7975;--line:#dce5e2;--teal:#027658;--teal2:#0d9973;--soft:#edf7f3;--bad:#b42318}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.app{max-width:1180px;margin:auto;padding:18px}
@@ -42,7 +42,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;bord
 <body><div class="app">
 <header>
 <svg class="logo" viewBox="0 0 120 90"><path d="M10 14H92L101 26H18Z"/><path d="M25 37H79L88 49H33Z"/><path d="M43 60H70L78 72H51Z"/></svg>
-<div><h1>Financial Education</h1><div class="sub">program przygotowania do egzaminu na DI • v5.3 <button id="updateBtn" style="display:none;margin-left:8px;padding:3px 7px">Dostępna aktualizacja</button></div></div>
+<div><h1>Financial Education</h1><div class="sub">program przygotowania do egzaminu na DI • v5.4 <button id="updateBtn" style="display:none;margin-left:8px;padding:3px 7px">Dostępna aktualizacja</button></div></div>
 <div class="counts"><span class="badge">▢ <b id="topCount">911</b> pytań</span><span class="badge">◇ <b id="matCount">0</b> materiałów</span></div>
 </header>
 <nav id="nav">
@@ -211,8 +211,8 @@ function parseFR(t,cat){let out=[];for(const m of t.matchAll(/<q>([\s\S]*?)<\/q>
 function lawById(id){return laws.find(x=>x.id===id)}
 function renderLawList(){
   if(!$("lawList"))return;
-  $("lawList").innerHTML=laws.length?laws.map(l=>`<button class="law-item ${l.id===activeLawId?"active":""}" data-law-id="${l.id}"><b>${esc(l.name)}</b><br><span class="small muted">${l.type==="pdf"?"PDF":"tekst"}</span></button>`).join(""):'<span class="muted">Nie dodano jeszcze żadnej ustawy.</span>';
-  document.querySelectorAll("[data-law-id]").forEach(b=>b.onclick=()=>{activeLawId=b.dataset.lawId;renderLawList();renderActiveLaw()});
+  $("lawList").innerHTML=laws.length?laws.map(l=>`<div class="row" style="align-items:center"><button class="law-item ${l.id===activeLawId?"active":""}" data-law-id="${l.id}" style="flex:1"><b>${esc(l.name)}</b><br><span class="small muted">${l.type==="pdf"?"PDF":"tekst"}</span></button><button data-del-law-list="${l.id}" style="color:var(--bad)">Usuń</button></div>`).join(""):'<span class="muted">Nie dodano jeszcze żadnej ustawy.</span>';
+  document.querySelectorAll("[data-law-id]").forEach(b=>b.onclick=()=>{activeLawId=b.dataset.lawId;renderLawList();renderActiveLaw()});document.querySelectorAll("[data-del-law-list]").forEach(b=>b.onclick=async()=>{const l=lawById(b.dataset.delLawList);if(!l||!confirm("Usunąć ustawę „"+l.name+"”?"))return;try{await delLaw(l.id);if(activeLawId===l.id)activeLawId=null;await reloadLaws()}catch(e){alert("Nie udało się usunąć ustawy: "+e.message)}});
 }
 function renderActiveLaw(){
   const l=lawById(activeLawId);if(!$("lawTitle"))return;
@@ -240,7 +240,8 @@ function showSummaryText(){const l=lawById(activeLawId);if(!l)return;const t=(l.
 function openDB(){return new Promise((res,rej)=>{try{let r=indexedDB.open(MATDB,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE,{keyPath:"id"})};r.onsuccess=()=>{idb=r.result;res()};r.onerror=()=>rej(r.error)}catch(e){rej(e)}})}
 function allMat(){return new Promise((res,rej)=>{if(!idb)return res([]);let r=idb.transaction(STORE).objectStore(STORE).getAll();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>rej(r.error)})}
 function putMat(o){return new Promise((res,rej)=>{let r=idb.transaction(STORE,"readwrite").objectStore(STORE).put(o);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
-async function renderMat(){let a=await allMat();$("matCount").textContent=a.length;$("matList").innerHTML=a.length?a.map(x=>`<p><b>${esc(x.name)}</b> <span class="tag">${esc(x.stage)}</span> <span class="tag">${esc(x.category)}</span></p>`).join(""):'<span class="muted">Brak materiałów.</span>'}
+function deleteMaterial(id){return new Promise((res,rej)=>{if(!idb)return rej(new Error("Magazyn materiałów nie jest gotowy."));let r=idb.transaction(STORE,"readwrite").objectStore(STORE).delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
+async function renderMat(){let a=await allMat();$("matCount").textContent=a.length;$("matList").innerHTML=a.length?a.map(x=>`<p><b>${esc(x.name)}</b> <span class="tag">${esc(x.stage)}</span> <span class="tag">${esc(x.category)}</span> <button data-delmat="${x.id}" style="color:var(--bad);margin-left:8px">Usuń</button></p>`).join(""):'<span class="muted">Brak materiałów.</span>';document.querySelectorAll("[data-delmat]").forEach(b=>b.onclick=async()=>{if(!confirm("Usunąć ten materiał?"))return;try{await deleteMaterial(b.dataset.delmat);await renderMat();if($("helperWrap").classList.contains("open"))await renderHelp()}catch(e){alert("Nie udało się usunąć materiału: "+e.message)}})}
 async function renderHelp(){let a=await allMat(),c=$("helpCat").value,st=$("helpStage").value;a=a.filter(x=>(c==="Wszystkie"||x.category===c||x.category==="Pomoce")&&(st==="Wszystkie"||x.stage===st));$("helpList").innerHTML=a.length?a.map(x=>`<p><button data-openmat="${x.id}">Pokaż</button> <b>${esc(x.name)}</b></p>`).join(""):'<p class="muted">Brak materiałów dla filtra.</p>';document.querySelectorAll("[data-openmat]").forEach(b=>b.onclick=()=>showMat(b.dataset.openmat))}
 async function showMat(id){let a=await allMat(),x=a.find(y=>y.id===id);if(!x)return;if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl=URL.createObjectURL(x.blob);let img=(x.type||"").startsWith("image/")||/\.(jpg|jpeg|png|webp)$/i.test(x.name);if(img){$("viewer").innerHTML=`<div class="zoom"><button id="zm">−</button><b id="zv">100%</b><button id="zp">+</button><button id="zf">Dopasuj</button></div><img id="zi" src="${objectUrl}">`;let z=1,im=$("zi"),v=$("zv");let ap=()=>{im.style.width=(im.naturalWidth*z)+"px";v.textContent=Math.round(z*100)+"%"};im.onload=()=>{z=Math.min(1,($("viewer").clientWidth-10)/im.naturalWidth);ap()};$("zp").onclick=()=>{z=Math.min(4,z+.25);ap()};$("zm").onclick=()=>{z=Math.max(.15,z-.25);ap()};$("zf").onclick=()=>{z=Math.min(1,($("viewer").clientWidth-10)/im.naturalWidth);ap()}}else $("viewer").innerHTML=`<iframe src="${objectUrl}"></iframe>`}
 document.querySelectorAll("#nav button").forEach(b=>b.onclick=()=>{document.querySelectorAll("#nav button").forEach(x=>x.classList.remove("active"));document.querySelectorAll("section").forEach(x=>x.classList.remove("active"));b.classList.add("active");$(b.dataset.tab).classList.add("active");if(b.dataset.tab==="law"){renderLawList();renderActiveLaw()}if(b.dataset.tab==="materials")renderMat();if(b.dataset.tab==="base")renderBase();if(b.dataset.tab==="stats")renderStats()});

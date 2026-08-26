@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f7f9f8">
-<title>Financial Education v5.6</title>
+<title>Financial Education v5.7</title>
 <style>
 :root{--bg:#f7f9f8;--card:#fff;--text:#17211f;--muted:#6b7975;--line:#dce5e2;--teal:#027658;--teal2:#0d9973;--soft:#edf7f3;--bad:#b42318}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.app{max-width:1180px;margin:auto;padding:18px}
@@ -46,12 +46,29 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;bord
   word-break: normal;
 }
 
+
+.question-formatted{
+  white-space: pre-wrap;
+  tab-size: 4;
+  font-size: 1.5em;
+  line-height: 1.35;
+  font-weight: 700;
+  margin: 18px 0;
+  overflow-wrap: normal;
+  word-break: normal;
+  font-family: inherit;
+}
+.answer-text{
+  white-space: pre-wrap;
+  tab-size: 4;
+}
+
 </style>
 </head>
 <body><div class="app">
 <header>
 <svg class="logo" viewBox="0 0 120 90"><path d="M10 14H92L101 26H18Z"/><path d="M25 37H79L88 49H33Z"/><path d="M43 60H70L78 72H51Z"/></svg>
-<div><h1>Financial Education</h1><div class="sub">program przygotowania do egzaminu na DI • v5.6 <button id="updateBtn" style="display:none;margin-left:8px;padding:3px 7px">Dostępna aktualizacja</button></div></div>
+<div><h1>Financial Education</h1><div class="sub">program przygotowania do egzaminu na DI • v5.7 <button id="updateBtn" style="display:none;margin-left:8px;padding:3px 7px">Dostępna aktualizacja</button></div></div>
 <div class="counts"><span class="badge">▢ <b id="topCount">911</b> pytań</span><span class="badge">◇ <b id="matCount">0</b> materiałów</span></div>
 </header>
 <nav id="nav">
@@ -147,7 +164,7 @@ function fill(id,all=true){let el=$(id),v=el.value;el.innerHTML=(all?["Wszystkie
 function refresh(){["learnCat","importCat","matCat","addCat","baseCat"].forEach((id,i)=>fill(id,i!==1&&i!==2&&i!==3)); $("topCount").textContent=db.length;$("sQuestions").textContent=db.length;renderBase();renderStats()}
 function pool(){let c=$("learnCat").value,m=$("mode").value;return db.filter(q=>(c==="Wszystkie"||q.category===c)&&(m==="all"||m==="wrong"&&(q.stats?.wrong||0)>0||m==="star"&&q.starred||m==="unseen"&&!(q.stats?.attempts)))}
 function draw(){if($("learnEditor"))$("learnEditor").innerHTML="";let p=pool();if(!p.length){$("question").innerHTML='<span class="muted">Brak pytań dla tego filtra.</span>';return}current=p[Math.floor(Math.random()*p.length)];selected=new Set();answered=false;renderQ()}
-function renderQ(){if(!current)return;let keys=Object.keys(current.answers||{});$("question").innerHTML=`<span class="tag">${esc(current.category)}</span><h2>${esc(current.question)}</h2>${keys.map(k=>`<button class="answer" data-a="${k}"><b>${k}.</b> ${esc(current.answers[k])}</button>`).join("")}<div class="row"><button class="primary" id="check">Sprawdź</button><button id="editCurrent">Edytuj pytanie</button></div><div id="result"></div>`;document.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{if(answered)return;let k=b.dataset.a;selected.has(k)?selected.delete(k):selected.add(k);b.classList.toggle("sel")});$("check").onclick=check;$("editCurrent").onclick=openLearnEditor}
+function renderQ(){if(!current)return;let keys=Object.keys(current.answers||{});$("question").innerHTML=`<span class="tag">${esc(current.category)}</span><div id="questionTextFormatted" class="question-formatted">${esc(current.question)}</div>${keys.map(k=>`<button class="answer" data-a="${k}"><b>${k}.</b> <span class="answer-text">${esc(current.answers[k])}</span></button>`).join("")}<div class="row"><button class="primary" id="check">Sprawdź</button><button id="editCurrent">Edytuj pytanie</button></div><div id="result"></div>`;document.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{if(answered)return;let k=b.dataset.a;selected.has(k)?selected.delete(k):selected.add(k);b.classList.toggle("sel")});$("check").onclick=check;$("editCurrent").onclick=openLearnEditor}
 function check(){if(!current||answered)return;answered=true;let got=[...selected].sort().join(""),ok=got===String(current.correct||"").split("").sort().join("");current.stats=current.stats||{attempts:0,correct:0,wrong:0};current.stats.attempts++;ok?current.stats.correct++:current.stats.wrong++;document.querySelectorAll("[data-a]").forEach(b=>{let k=b.dataset.a;if(String(current.correct).includes(k))b.classList.add("good");else if(selected.has(k))b.classList.add("bad")});$("result").innerHTML=`<div class="expl"><b>${ok?"Dobrze":"Niepoprawnie"}</b><br>Prawidłowa: <b>${esc(current.correct)}</b>${current.explanation?`<p>${esc(current.explanation)}</p>`:""}</div>`;save()}
 
 function questionById(id){return db.find(q=>q.id===id)}

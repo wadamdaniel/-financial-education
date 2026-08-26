@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f7f9f8">
-<title>Financial Education v5.2</title>
+<title>Financial Education v5.3</title>
 <style>
 :root{--bg:#f7f9f8;--card:#fff;--text:#17211f;--muted:#6b7975;--line:#dce5e2;--teal:#027658;--teal2:#0d9973;--soft:#edf7f3;--bad:#b42318}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.app{max-width:1180px;margin:auto;padding:18px}
@@ -42,7 +42,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;bord
 <body><div class="app">
 <header>
 <svg class="logo" viewBox="0 0 120 90"><path d="M10 14H92L101 26H18Z"/><path d="M25 37H79L88 49H33Z"/><path d="M43 60H70L78 72H51Z"/></svg>
-<div><h1>Financial Education</h1><div class="sub">program przygotowania do egzaminu na DI</div></div>
+<div><h1>Financial Education</h1><div class="sub">program przygotowania do egzaminu na DI • v5.3 <button id="updateBtn" style="display:none;margin-left:8px;padding:3px 7px">Dostępna aktualizacja</button></div></div>
 <div class="counts"><span class="badge">▢ <b id="topCount">911</b> pytań</span><span class="badge">◇ <b id="matCount">0</b> materiałów</span></div>
 </header>
 <nav id="nav">
@@ -63,7 +63,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;bord
       <div class="card">
         <div class="row">
           <div class="grow"><label>Wybrana ustawa</label><div id="lawTitle"><b>Nie wybrano ustawy</b></div></div>
-          <button id="addSelection">Dodaj zaznaczenie do podsumowania</button>
+          <button id="addSelection">Dodaj zaznaczenie do podsumowania</button><button id="deleteLaw" style="color:var(--bad)">Usuń ustawę</button>
         </div>
         <div id="scopeBox" class="exam-scope" style="margin-top:10px">Zakres egzaminu pojawi się tutaj po wybraniu ustawy.</div>
       </div>
@@ -102,7 +102,7 @@ const SEED=[{"question":"Wartość nominalna akcji spółki Zeta wynosi 60 USD, 
 const $=id=>document.getElementById(id);
 const KEY="financial_education_v50_questions";
 const CATS=["Finanse i statystyka","Statystyka","Ekonomia","Prawo","Etyka"];
-const MATDB="financial_education_v50_materials", STORE="materials";const LAWKEY="financial_education_v51_laws";
+const MATDB="financial_education_v50_materials", STORE="materials";const LAWDB="financial_education_v53_laws", LAWSTORE="laws";
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const nq=s=>String(s??"").trim().toLowerCase().replace(/\s+/g," ");
@@ -110,8 +110,14 @@ function norm(q){return {id:q.id||uid(),category:q.category||"Finanse i statysty
 let db=SEED.map(norm),current=null,selected=new Set(),answered=false,idb=null,objectUrl=null;let laws=[],activeLawId=null;
 try{let s=localStorage.getItem(KEY);if(s){let a=JSON.parse(s);if(Array.isArray(a)){let map=new Map(a.map(q=>[nq(q.question),norm(q)]));for(const q of SEED){if(!map.has(nq(q.question)))map.set(nq(q.question),norm(q))}db=[...map.values()]}}}catch(e){}
 
-try{const s=localStorage.getItem(LAWKEY);if(s){const a=JSON.parse(s);if(Array.isArray(a))laws=a}}catch(e){laws=[]}
-function saveLaws(){try{localStorage.setItem(LAWKEY,JSON.stringify(laws))}catch(e){}renderLawList();renderActiveLaw()}
+
+let lawdb=null;
+function openLawDB(){return new Promise((res,rej)=>{try{const r=indexedDB.open(LAWDB,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(LAWSTORE))r.result.createObjectStore(LAWSTORE,{keyPath:"id"})};r.onsuccess=()=>{lawdb=r.result;res()};r.onerror=()=>rej(r.error||new Error("Błąd magazynu ustaw"));r.onblocked=()=>rej(new Error("Magazyn ustaw zablokowany"))}catch(e){rej(e)}})}
+function getAllLaws(){return new Promise((res,rej)=>{if(!lawdb)return res([]);const r=lawdb.transaction(LAWSTORE).objectStore(LAWSTORE).getAll();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>rej(r.error)})}
+function putLaw(l){return new Promise((res,rej)=>{if(!lawdb)return rej(new Error("Magazyn ustaw nie jest gotowy"));const r=lawdb.transaction(LAWSTORE,"readwrite").objectStore(LAWSTORE).put(l);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
+function delLaw(id){return new Promise((res,rej)=>{if(!lawdb)return rej(new Error("Magazyn ustaw nie jest gotowy"));const r=lawdb.transaction(LAWSTORE,"readwrite").objectStore(LAWSTORE).delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
+async function reloadLaws(){laws=await getAllLaws();if(activeLawId&&!laws.some(x=>x.id===activeLawId))activeLawId=null;if(!activeLawId&&laws.length)activeLawId=laws[0].id;renderLawList();renderActiveLaw()}
+async function saveLawObject(l){await putLaw(l);const i=laws.findIndex(x=>x.id===l.id);if(i>=0)laws[i]=l;else laws.push(l);renderLawList();renderActiveLaw()}
 
 function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){} refresh()}
 function cats(){return [...new Set([...CATS,...db.map(q=>q.category).filter(Boolean)])]}
@@ -214,7 +220,7 @@ function renderActiveLaw(){
   $("lawTitle").innerHTML=`<b>${esc(l.name)}</b>`;$("scopeBox").textContent=l.scope||"Nie wpisano zakresu egzaminu.";$("lawViewer").className="";
   $("lawViewer").innerHTML=l.type==="pdf"?`<iframe class="law-pdf" src="${l.data}"></iframe>`:`<div id="lawTextContent" class="law-text">${esc(l.text||"")}</div>`;
   const a=l.summary||[];$("lawSummary").innerHTML=a.length?a.map((n,i)=>`<div class="law-summary-item"><small>${esc(l.name)} • fragment ${i+1}</small><div>${esc(n.text)}</div><div style="margin-top:8px"><button data-del-note="${i}">Usuń</button></div></div>`).join(""):'<span class="muted">Nie dodano jeszcze żadnych fragmentów.</span>';
-  document.querySelectorAll("[data-del-note]").forEach(b=>b.onclick=()=>{l.summary.splice(Number(b.dataset.delNote),1);saveLaws()});
+  document.querySelectorAll("[data-del-note]").forEach(b=>b.onclick=()=>{l.summary.splice(Number(b.dataset.delNote),1);saveLawObject(l).catch(e=>alert("Nie udało się zapisać: "+e.message))});
 }
 function fileData(file,asText){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);asText?r.readAsText(file):r.readAsDataURL(file)})}
 async function addLaw(){
@@ -223,12 +229,12 @@ async function addLaw(){
   const lower=file.name.toLowerCase();let law={id:uid(),name,scope,summary:[],filename:file.name};
   if(lower.endsWith(".pdf")){law.type="pdf";law.data=await fileData(file,false)}
   else{law.type="text";let t=String(await fileData(file,true)||"");if(lower.endsWith(".html")||lower.endsWith(".htm")){const d=document.createElement("div");d.innerHTML=t;t=d.innerText}law.text=t}
-  laws.push(law);activeLawId=law.id;$("lawName").value="";$("lawScope").value="";$("lawFile").value="";$("lawInfo").textContent=`Dodano: ${name}`;saveLaws()
+  await saveLawObject(law);activeLawId=law.id;$("lawName").value="";$("lawScope").value="";$("lawFile").value="";$("lawInfo").textContent=`Dodano i zapisano: ${name}`;renderLawList();renderActiveLaw()
 }
 function addLawSelection(){
-  const l=lawById(activeLawId);if(!l)return alert("Najpierw wybierz ustawę.");const s=window.getSelection(),txt=s?s.toString().trim():"";if(!txt)return alert("Najpierw zaznacz fragment tekstu ustawy.");l.summary=l.summary||[];l.summary.push({text:txt});saveLaws();try{s.removeAllRanges()}catch(e){}
+  const l=lawById(activeLawId);if(!l)return alert("Najpierw wybierz ustawę.");const s=window.getSelection(),txt=s?s.toString().trim():"";if(!txt)return alert("Najpierw zaznacz fragment tekstu ustawy.");l.summary=l.summary||[];l.summary.push({text:txt});saveLawObject(l).catch(e=>alert("Nie udało się zapisać: "+e.message));try{s.removeAllRanges()}catch(e){}
 }
-function clearLawSummary(){const l=lawById(activeLawId);if(l&&confirm("Wyczyścić podsumowanie tej ustawy?")){l.summary=[];saveLaws()}}
+function clearLawSummary(){const l=lawById(activeLawId);if(l&&confirm("Wyczyścić podsumowanie tej ustawy?")){l.summary=[];saveLawObject(l).catch(e=>alert("Nie udało się zapisać: "+e.message))}}
 function showSummaryText(){const l=lawById(activeLawId);if(!l)return;const t=(l.summary||[]).map((x,i)=>`${i+1}. ${x.text}`).join("\n\n");if(!t)return alert("Podsumowanie jest puste.");const w=window.open("","_blank");if(w){w.document.write(`<meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(l.name)}</title><pre style="white-space:pre-wrap;font:16px/1.55 system-ui;padding:20px">${esc(t)}</pre>`);w.document.close()}}
 
 function openDB(){return new Promise((res,rej)=>{try{let r=indexedDB.open(MATDB,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE,{keyPath:"id"})};r.onsuccess=()=>{idb=r.result;res()};r.onerror=()=>rej(r.error)}catch(e){rej(e)}})}
@@ -245,9 +251,12 @@ $("help").onclick=()=>{$("helperWrap").classList.add("open");renderHelp()};$("cl
 $("saveMat").onclick=async()=>{if(!idb)return $("matInfo").textContent="Magazyn materiałów jest niedostępny w tym trybie.";let fs=[...$("matFiles").files],n=0;for(const f of fs){await putMat({id:uid(),name:f.name,stage:$("matStage").value,category:$("matCat").value,type:f.type,size:f.size,blob:f});n++}$("matInfo").textContent=`Dodano ${n} materiałów.`;renderMat()};
 
 $("saveLaw").onclick=()=>addLaw().catch(e=>{$("lawInfo").textContent="Nie udało się dodać ustawy: "+e.message});
-$("addSelection").onclick=addLawSelection;$("clearLawSummary").onclick=clearLawSummary;$("showSummaryText").onclick=showSummaryText;
-renderLawList();renderActiveLaw();
+$("addSelection").onclick=addLawSelection;$("clearLawSummary").onclick=clearLawSummary;$("showSummaryText").onclick=showSummaryText;$("deleteLaw").onclick=async()=>{const l=lawById(activeLawId);if(l&&confirm("Usunąć ustawę?")){try{await delLaw(l.id);activeLawId=null;await reloadLaws()}catch(e){alert("Nie udało się usunąć: "+e.message)}}};
+renderLawList();renderActiveLaw();openLawDB().then(reloadLaws).catch(e=>{$("lawInfo").textContent="Błąd trwałego magazynu ustaw: "+e.message});
 
 ["learnCat","baseCat"].forEach(id=>fill(id,true));["importCat","matCat","addCat"].forEach(id=>fill(id,false));$("helpCat").innerHTML=["Wszystkie",...cats(),"Pomoce","Wielodziałowe"].map(x=>`<option>${esc(x)}</option>`).join("");
 refresh();openDB().then(renderMat).catch(()=>{$("matInfo").textContent="Materiały mogą wymagać uruchomienia wersji PWA. Quiz działa niezależnie."});
+
+if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").then(reg=>{const show=w=>{if(!w)return;const b=$("updateBtn");b.style.display="inline-block";b.onclick=()=>w.postMessage({type:"SKIP_WAITING"})};if(reg.waiting)show(reg.waiting);reg.addEventListener("updatefound",()=>{const w=reg.installing;w&&w.addEventListener("statechange",()=>{if(w.state==="installed"&&navigator.serviceWorker.controller)show(w)})});navigator.serviceWorker.addEventListener("controllerchange",()=>location.reload());reg.update().catch(()=>{})}).catch(()=>{})}
+
 </script></body></html>

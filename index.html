@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f7f9f8">
-<title>Financial Education v5.7</title>
+<title>Financial Education v5.8</title>
 <style>
 :root{--bg:#f7f9f8;--card:#fff;--text:#17211f;--muted:#6b7975;--line:#dce5e2;--teal:#027658;--teal2:#0d9973;--soft:#edf7f3;--bad:#b42318}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.app{max-width:1180px;margin:auto;padding:18px}
@@ -63,12 +63,19 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;bord
   tab-size: 4;
 }
 
+
+.law-pdf-viewer{border:1px solid var(--line);border-radius:12px;background:#eef2f1;overflow:auto;max-height:74vh;min-height:520px}
+.law-pdf-toolbar{position:sticky;top:0;z-index:5;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:9px;background:#fff;border-bottom:1px solid var(--line)}
+.law-pdf-toolbar button{min-width:44px;min-height:42px}.law-zoom-value{min-width:64px;text-align:center;font-weight:700}
+.law-pdf-pages{padding:12px;display:flex;flex-direction:column;align-items:center;gap:14px;min-width:max-content}
+.law-pdf-page{display:block;background:#fff;box-shadow:0 3px 14px rgba(0,0,0,.12)}
+.law-pdf-status{padding:16px;text-align:center;color:var(--muted)}
 </style>
 </head>
 <body><div class="app">
 <header>
 <svg class="logo" viewBox="0 0 120 90"><path d="M10 14H92L101 26H18Z"/><path d="M25 37H79L88 49H33Z"/><path d="M43 60H70L78 72H51Z"/></svg>
-<div><h1>Financial Education</h1><div class="sub">program przygotowania do egzaminu na DI • v5.7 <button id="updateBtn" style="display:none;margin-left:8px;padding:3px 7px">Dostępna aktualizacja</button></div></div>
+<div><h1>Financial Education</h1><div class="sub">program przygotowania do egzaminu na DI • v5.8 <button id="updateBtn" style="display:none;margin-left:8px;padding:3px 7px">Dostępna aktualizacja</button></div></div>
 <div class="counts"><span class="badge">▢ <b id="topCount">911</b> pytań</span><span class="badge">◇ <b id="matCount">0</b> materiałów</span></div>
 </header>
 <nav id="nav">
@@ -257,10 +264,59 @@ function renderActiveLaw(){
   const l=lawById(activeLawId);if(!$("lawTitle"))return;
   if(!l){$("lawTitle").innerHTML="<b>Nie wybrano ustawy</b>";$("scopeBox").textContent="Zakres egzaminu pojawi się tutaj po wybraniu ustawy.";$("lawViewer").className="law-empty";$("lawViewer").innerHTML="Dodaj ustawę po prawej stronie, a potem wybierz ją z listy.";$("lawSummary").innerHTML="";return}
   $("lawTitle").innerHTML=`<b>${esc(l.name)}</b>`;$("scopeBox").textContent=l.scope||"Nie wpisano zakresu egzaminu.";$("lawViewer").className="";
-  $("lawViewer").innerHTML=l.type==="pdf"?`<iframe class="law-pdf" src="${l.data}"></iframe>`:`<div id="lawTextContent" class="law-text">${esc(l.text||"")}</div>`;
+  if(l.type==="pdf"){renderLawPdf(l).catch(e=>{$("lawViewer").innerHTML=`<div class="notice">Błąd PDF: ${esc(e.message||e)}</div>`})}else{$("lawViewer").innerHTML=`<div id="lawTextContent" class="law-text">${esc(l.text||"")}</div>`;}
   const a=l.summary||[];$("lawSummary").innerHTML=a.length?a.map((n,i)=>`<div class="law-summary-item"><small>${esc(l.name)} • fragment ${i+1}</small><div>${esc(n.text)}</div><div style="margin-top:8px"><button data-del-note="${i}">Usuń</button></div></div>`).join(""):'<span class="muted">Nie dodano jeszcze żadnych fragmentów.</span>';
   document.querySelectorAll("[data-del-note]").forEach(b=>b.onclick=()=>{l.summary.splice(Number(b.dataset.delNote),1);saveLawObject(l).catch(e=>alert("Nie udało się zapisać: "+e.message))});
 }
+
+let pdfjsPromise=null,pdfRenderToken=0;
+function ensurePdfJs(){
+  if(!pdfjsPromise)pdfjsPromise=import("https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs").then(lib=>{
+    lib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
+    return lib;
+  });
+  return pdfjsPromise;
+}
+function pdfBytes(dataUrl){
+  const b64=String(dataUrl||"").split(",")[1]||"",bin=atob(b64),a=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);
+  return a;
+}
+async function renderLawPdf(l){
+  const token=++pdfRenderToken,host=$("lawViewer");
+  host.innerHTML=`<div class="law-pdf-viewer" id="lawPdfScroll"><div class="law-pdf-toolbar"><button id="lawZoomOut">−</button><span id="lawZoomValue" class="law-zoom-value">100%</span><button id="lawZoomIn">+</button><button id="lawZoomFit">Dopasuj</button><button id="lawZoom100">100%</button><span id="lawPdfCount" class="muted small"></span></div><div id="lawPdfStatus" class="law-pdf-status">Ładowanie…</div><div id="lawPdfPages" class="law-pdf-pages"></div></div>`;
+  const lib=await ensurePdfJs(),pdf=await lib.getDocument({data:pdfBytes(l.data)}).promise;
+  if(token!==pdfRenderToken)return;
+  $("lawPdfCount").textContent=pdf.numPages+" stron";
+  const widths=[];
+  for(let n=1;n<=pdf.numPages;n++){const p=await pdf.getPage(n),v=p.getViewport({scale:1});widths.push(v.width)}
+  let zoom=1,rendering=false;
+  const fit=()=>{zoom=Math.max(.25,Math.min(2,($("lawPdfScroll").clientWidth-34)/Math.max(...widths)))};
+  async function renderAll(){
+    if(rendering)return;
+    rendering=true;
+    $("lawPdfPages").innerHTML="";
+    $("lawPdfStatus").style.display="block";
+    $("lawZoomValue").textContent=Math.round(zoom*100)+"%";
+    for(let n=1;n<=pdf.numPages;n++){
+      if(token!==pdfRenderToken){rendering=false;return}
+      const p=await pdf.getPage(n),v=p.getViewport({scale:zoom}),c=document.createElement("canvas");
+      c.className="law-pdf-page";c.width=Math.ceil(v.width);c.height=Math.ceil(v.height);
+      $("lawPdfPages").appendChild(c);
+      $("lawPdfStatus").textContent=`Strona ${n}/${pdf.numPages}`;
+      await p.render({canvasContext:c.getContext("2d",{alpha:false}),viewport:v}).promise;
+    }
+    $("lawPdfStatus").style.display="none";
+    rendering=false;
+  }
+  $("lawZoomIn").onclick=async()=>{zoom=Math.min(3,zoom+.2);await renderAll()};
+  $("lawZoomOut").onclick=async()=>{zoom=Math.max(.25,zoom-.2);await renderAll()};
+  $("lawZoom100").onclick=async()=>{zoom=1;await renderAll()};
+  $("lawZoomFit").onclick=async()=>{fit();await renderAll()};
+  fit();
+  await renderAll();
+}
+
 function fileData(file,asText){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);asText?r.readAsText(file):r.readAsDataURL(file)})}
 async function addLaw(){
   const name=$("lawName").value.trim(),scope=$("lawScope").value.trim(),file=$("lawFile").files[0];

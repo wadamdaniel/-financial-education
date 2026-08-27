@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f7f9f8">
-<title>Financial Education v5.8</title>
+<title>Financial Education v5.9</title>
 <style>
 :root{--bg:#f7f9f8;--card:#fff;--text:#17211f;--muted:#6b7975;--line:#dce5e2;--teal:#027658;--teal2:#0d9973;--soft:#edf7f3;--bad:#b42318}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.app{max-width:1180px;margin:auto;padding:18px}
@@ -70,12 +70,51 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;bord
 .law-pdf-pages{padding:12px;display:flex;flex-direction:column;align-items:center;gap:14px;min-width:max-content}
 .law-pdf-page{display:block;background:#fff;box-shadow:0 3px 14px rgba(0,0,0,.12)}
 .law-pdf-status{padding:16px;text-align:center;color:var(--muted)}
+
+/* v5.9 — selectable text layer over rendered PDF pages */
+.law-pdf-page-wrap{
+  position:relative;
+  background:#fff;
+  box-shadow:0 3px 14px rgba(0,0,0,.12);
+  flex:0 0 auto;
+}
+.law-pdf-page{
+  display:block;
+  box-shadow:none;
+}
+.law-pdf-text-layer{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+  line-height:1;
+  text-size-adjust:none;
+  -webkit-text-size-adjust:none;
+  transform-origin:0 0;
+  z-index:2;
+  cursor:text;
+}
+.law-pdf-text-layer span,
+.law-pdf-text-layer br{
+  color:transparent;
+  position:absolute;
+  white-space:pre;
+  transform-origin:0 0;
+  cursor:text;
+}
+.law-pdf-text-layer ::selection{
+  background:rgba(2,118,88,.28);
+}
+.law-pdf-text-layer .markedContent{
+  top:0;
+  height:0;
+}
+
 </style>
 </head>
 <body><div class="app">
 <header>
 <svg class="logo" viewBox="0 0 120 90"><path d="M10 14H92L101 26H18Z"/><path d="M25 37H79L88 49H33Z"/><path d="M43 60H70L78 72H51Z"/></svg>
-<div><h1>Financial Education</h1><div class="sub">program przygotowania do egzaminu na DI • v5.8 <button id="updateBtn" style="display:none;margin-left:8px;padding:3px 7px">Dostępna aktualizacja</button></div></div>
+<div><h1>Financial Education</h1><div class="sub">program przygotowania do egzaminu na DI • v5.9 <button id="updateBtn" style="display:none;margin-left:8px;padding:3px 7px">Dostępna aktualizacja</button></div></div>
 <div class="counts"><span class="badge">▢ <b id="topCount">911</b> pytań</span><span class="badge">◇ <b id="matCount">0</b> materiałów</span></div>
 </header>
 <nav id="nav">
@@ -96,7 +135,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;bord
       <div class="card">
         <div class="row">
           <div class="grow"><label>Wybrana ustawa</label><div id="lawTitle"><b>Nie wybrano ustawy</b></div></div>
-          <button id="addSelection">Dodaj zaznaczenie do podsumowania</button><button id="deleteLaw" style="color:var(--bad)">Usuń ustawę</button>
+          <button id="addSelection">Dodaj zaznaczenie do podsumowania</button><span class="small muted">Zaznacz tekst bezpośrednio w PDF, potem kliknij ten przycisk.</span><button id="deleteLaw" style="color:var(--bad)">Usuń ustawę</button>
         </div>
         <div id="scopeBox" class="exam-scope" style="margin-top:10px">Zakres egzaminu pojawi się tutaj po wybraniu ustawy.</div>
       </div>
@@ -300,11 +339,39 @@ async function renderLawPdf(l){
     $("lawZoomValue").textContent=Math.round(zoom*100)+"%";
     for(let n=1;n<=pdf.numPages;n++){
       if(token!==pdfRenderToken){rendering=false;return}
-      const p=await pdf.getPage(n),v=p.getViewport({scale:zoom}),c=document.createElement("canvas");
-      c.className="law-pdf-page";c.width=Math.ceil(v.width);c.height=Math.ceil(v.height);
-      $("lawPdfPages").appendChild(c);
+      const p=await pdf.getPage(n),v=p.getViewport({scale:zoom});
+      const wrap=document.createElement("div");
+      wrap.className="law-pdf-page-wrap";
+      wrap.style.width=Math.ceil(v.width)+"px";
+      wrap.style.height=Math.ceil(v.height)+"px";
+
+      const c=document.createElement("canvas");
+      c.className="law-pdf-page";
+      c.width=Math.ceil(v.width);
+      c.height=Math.ceil(v.height);
+      c.style.width=Math.ceil(v.width)+"px";
+      c.style.height=Math.ceil(v.height)+"px";
+      wrap.appendChild(c);
+
+      const tl=document.createElement("div");
+      tl.className="law-pdf-text-layer textLayer";
+      tl.style.width=Math.ceil(v.width)+"px";
+      tl.style.height=Math.ceil(v.height)+"px";
+      tl.style.setProperty("--scale-factor",String(v.scale));
+      wrap.appendChild(tl);
+
+      $("lawPdfPages").appendChild(wrap);
       $("lawPdfStatus").textContent=`Strona ${n}/${pdf.numPages}`;
+
       await p.render({canvasContext:c.getContext("2d",{alpha:false}),viewport:v}).promise;
+
+      const textContent=await p.getTextContent();
+      const textLayer=new lib.TextLayer({
+        textContentSource:textContent,
+        container:tl,
+        viewport:v
+      });
+      await textLayer.render();
     }
     $("lawPdfStatus").style.display="none";
     rendering=false;

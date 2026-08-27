@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f7f9f8">
-<title>Financial Education v6.2</title>
+<title>Financial Education v5.9</title>
 <style>
 :root{--bg:#f7f9f8;--card:#fff;--text:#17211f;--muted:#6b7975;--line:#dce5e2;--teal:#027658;--teal2:#0d9973;--soft:#edf7f3;--bad:#b42318}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.app{max-width:1180px;margin:auto;padding:18px}
@@ -109,49 +109,12 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;bord
   height:0;
 }
 
-
-/* v6.2 — safe summary overlay and highlights */
-.summary-panel{
-  display:none;
-  margin-top:12px;
-  border:1px solid var(--line);
-  border-radius:14px;
-  background:#fffdf2;
-  overflow:hidden;
-}
-.summary-panel.open{display:block}
-.summary-panel-head{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-  padding:10px 12px;
-  background:#fff6b8;
-  border-bottom:1px solid #eadf9d;
-}
-.summary-panel-body{
-  padding:14px;
-  white-space:pre-wrap;
-  line-height:1.55;
-  max-height:500px;
-  overflow:auto;
-}
-.law-text mark{
-  background:#fff06a;
-  color:inherit;
-  padding:0 .04em;
-}
-.pdf-summary-highlight{
-  background:rgba(255,230,70,.62)!important;
-  border-radius:2px;
-}
-
 </style>
 </head>
 <body><div class="app">
 <header>
 <svg class="logo" viewBox="0 0 120 90"><path d="M10 14H92L101 26H18Z"/><path d="M25 37H79L88 49H33Z"/><path d="M43 60H70L78 72H51Z"/></svg>
-<div><h1>Financial Education</h1><div class="sub">program przygotowania do egzaminu na DI • v6.2 <button id="updateBtn" style="display:none;margin-left:8px;padding:3px 7px">Dostępna aktualizacja</button></div></div>
+<div><h1>Financial Education</h1><div class="sub">program przygotowania do egzaminu na DI • v5.9 <button id="updateBtn" style="display:none;margin-left:8px;padding:3px 7px">Dostępna aktualizacja</button></div></div>
 <div class="counts"><span class="badge">▢ <b id="topCount">911</b> pytań</span><span class="badge">◇ <b id="matCount">0</b> materiałów</span></div>
 </header>
 <nav id="nav">
@@ -172,7 +135,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;bord
       <div class="card">
         <div class="row">
           <div class="grow"><label>Wybrana ustawa</label><div id="lawTitle"><b>Nie wybrano ustawy</b></div></div>
-          <button id="addSelection">Dodaj zaznaczenie do podsumowania</button><span id="selectionInfo" class="small muted">Zaznacz tekst bezpośrednio w PDF.</span><button id="deleteLaw" style="color:var(--bad)">Usuń ustawę</button>
+          <button id="addSelection">Dodaj zaznaczenie do podsumowania</button><span class="small muted">Zaznacz tekst bezpośrednio w PDF, potem kliknij ten przycisk.</span><button id="deleteLaw" style="color:var(--bad)">Usuń ustawę</button>
         </div>
         <div id="scopeBox" class="exam-scope" style="margin-top:10px">Zakres egzaminu pojawi się tutaj po wybraniu ustawy.</div>
       </div>
@@ -181,13 +144,6 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;bord
         <h3>Moje podsumowanie</h3>
         <div class="row"><button id="showSummaryText">Pokaż tekst podsumowania</button><button id="clearLawSummary">Wyczyść podsumowanie</button></div>
         <div id="lawSummary"></div>
-<div id="summaryPanel" class="summary-panel">
-  <div class="summary-panel-head">
-    <b>Podsumowanie ustawy</b>
-    <button id="closeSummaryPanel" type="button">Zamknij</button>
-  </div>
-  <div id="summaryPanelBody" class="summary-panel-body"></div>
-</div>
       </div>
     </div>
     <aside class="law-side">
@@ -341,50 +297,18 @@ function lawById(id){return laws.find(x=>x.id===id)}
 function renderLawList(){
   if(!$("lawList"))return;
   $("lawList").innerHTML=laws.length?laws.map(l=>`<div class="row" style="align-items:center"><button class="law-item ${l.id===activeLawId?"active":""}" data-law-id="${l.id}" style="flex:1"><b>${esc(l.name)}</b><br><span class="small muted">${l.type==="pdf"?"PDF":"tekst"}</span></button><button data-del-law-list="${l.id}" style="color:var(--bad)">Usuń</button></div>`).join(""):'<span class="muted">Nie dodano jeszcze żadnej ustawy.</span>';
-  document.querySelectorAll("[data-law-id]").forEach(b=>b.onclick=()=>{activeLawId=b.dataset.lawId;lastLawSelection="";if($("selectionInfo"))$("selectionInfo").textContent="Zaznacz tekst bezpośrednio w PDF.";renderLawList();renderActiveLaw()});document.querySelectorAll("[data-del-law-list]").forEach(b=>b.onclick=async()=>{const l=lawById(b.dataset.delLawList);if(!l||!confirm("Usunąć ustawę „"+l.name+"”?"))return;try{await delLaw(l.id);if(activeLawId===l.id)activeLawId=null;await reloadLaws()}catch(e){alert("Nie udało się usunąć ustawy: "+e.message)}});
+  document.querySelectorAll("[data-law-id]").forEach(b=>b.onclick=()=>{activeLawId=b.dataset.lawId;renderLawList();renderActiveLaw()});document.querySelectorAll("[data-del-law-list]").forEach(b=>b.onclick=async()=>{const l=lawById(b.dataset.delLawList);if(!l||!confirm("Usunąć ustawę „"+l.name+"”?"))return;try{await delLaw(l.id);if(activeLawId===l.id)activeLawId=null;await reloadLaws()}catch(e){alert("Nie udało się usunąć ustawy: "+e.message)}});
 }
-
-function renderHighlightedLawText(l){
-  const text=String(l.text||"");
-  const notes=(l.summary||[]).map(x=>String(x.text||"").trim()).filter(Boolean).sort((a,b)=>b.length-a.length);
-  if(!notes.length)return esc(text);
-  let ranges=[];
-  for(const note of notes){
-    let pos=0;
-    while(true){
-      const i=text.indexOf(note,pos);
-      if(i<0)break;
-      ranges.push([i,i+note.length]);
-      pos=i+Math.max(1,note.length);
-    }
-  }
-  if(!ranges.length)return esc(text);
-  ranges.sort((a,b)=>a[0]-b[0]);
-  const merged=[];
-  for(const r of ranges){
-    if(!merged.length||r[0]>merged[merged.length-1][1])merged.push([...r]);
-    else merged[merged.length-1][1]=Math.max(merged[merged.length-1][1],r[1]);
-  }
-  let out="",p=0;
-  for(const [a,b] of merged){
-    out+=esc(text.slice(p,a))+"<mark>"+esc(text.slice(a,b))+"</mark>";
-    p=b;
-  }
-  out+=esc(text.slice(p));
-  return out;
-}
-
 function renderActiveLaw(){
   const l=lawById(activeLawId);if(!$("lawTitle"))return;
   if(!l){$("lawTitle").innerHTML="<b>Nie wybrano ustawy</b>";$("scopeBox").textContent="Zakres egzaminu pojawi się tutaj po wybraniu ustawy.";$("lawViewer").className="law-empty";$("lawViewer").innerHTML="Dodaj ustawę po prawej stronie, a potem wybierz ją z listy.";$("lawSummary").innerHTML="";return}
   $("lawTitle").innerHTML=`<b>${esc(l.name)}</b>`;$("scopeBox").textContent=l.scope||"Nie wpisano zakresu egzaminu.";$("lawViewer").className="";
-  if(l.type==="pdf"){renderLawPdf(l).catch(e=>{$("lawViewer").innerHTML=`<div class="notice">Błąd PDF: ${esc(e.message||e)}</div>`})}else{$("lawViewer").innerHTML=`<div id="lawTextContent" class="law-text">${renderHighlightedLawText(l)}</div>`;}
+  if(l.type==="pdf"){renderLawPdf(l).catch(e=>{$("lawViewer").innerHTML=`<div class="notice">Błąd PDF: ${esc(e.message||e)}</div>`})}else{$("lawViewer").innerHTML=`<div id="lawTextContent" class="law-text">${esc(l.text||"")}</div>`;}
   const a=l.summary||[];$("lawSummary").innerHTML=a.length?a.map((n,i)=>`<div class="law-summary-item"><small>${esc(l.name)} • fragment ${i+1}</small><div>${esc(n.text)}</div><div style="margin-top:8px"><button data-del-note="${i}">Usuń</button></div></div>`).join(""):'<span class="muted">Nie dodano jeszcze żadnych fragmentów.</span>';
   document.querySelectorAll("[data-del-note]").forEach(b=>b.onclick=()=>{l.summary.splice(Number(b.dataset.delNote),1);saveLawObject(l).catch(e=>alert("Nie udało się zapisać: "+e.message))});
 }
 
 let pdfjsPromise=null,pdfRenderToken=0;
-let lastLawSelection="";
 function ensurePdfJs(){
   if(!pdfjsPromise)pdfjsPromise=import("https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs").then(lib=>{
     lib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
@@ -469,53 +393,27 @@ async function addLaw(){
   else{law.type="text";let t=String(await fileData(file,true)||"");if(lower.endsWith(".html")||lower.endsWith(".htm")){const d=document.createElement("div");d.innerHTML=t;t=d.innerText}law.text=t}
   await saveLawObject(law);activeLawId=law.id;$("lawName").value="";$("lawScope").value="";$("lawFile").value="";$("lawInfo").textContent=`Dodano i zapisano: ${name}`;renderLawList();renderActiveLaw()
 }
-
-function captureLawSelection(){
-  const s=window.getSelection();
-  const txt=s?s.toString().trim():"";
-  if(txt){
-    lastLawSelection=txt;
-    if($("selectionInfo"))$("selectionInfo").textContent=`Zaznaczono ${txt.length} znaków. Kliknij „Dodaj zaznaczenie do podsumowania”.`;
-  }
-}
-document.addEventListener("selectionchange",()=>{
-  const s=window.getSelection();
-  if(!s||s.isCollapsed)return;
-  const a=s.anchorNode,b=s.focusNode;
-  const inLaw=(a&&a.parentElement?.closest?.("#lawViewer"))||(b&&b.parentElement?.closest?.("#lawViewer"));
-  if(inLaw)captureLawSelection();
-});
-
 function addLawSelection(){
-  const l=lawById(activeLawId);
-  if(!l)return alert("Najpierw wybierz ustawę.");
-  const s=window.getSelection();
-  const txt=String(lastLawSelection||"").trim();
-  if(!txt)return alert("Najpierw zaznacz fragment tekstu ustawy.");
-  let range=null;
-  try{if(s&&s.rangeCount)range=s.getRangeAt(0).cloneRange()}catch(e){}
-  l.summary=l.summary||[];
-  l.summary.push({text:txt});
-  saveLawObject(l).then(()=>{
-    if(range){
-      document.querySelectorAll("#lawViewer .law-pdf-text-layer span").forEach(sp=>{
-        try{if(range.intersectsNode(sp))sp.classList.add("pdf-summary-highlight")}catch(e){}
-      });
-    }
-    lastLawSelection="";
-    if($("selectionInfo"))$("selectionInfo").textContent="Dodano do podsumowania.";
-    if(l.type!=="pdf")renderActiveLaw();
-  }).catch(e=>alert("Nie udało się zapisać: "+e.message));
-  try{s&&s.removeAllRanges()}catch(e){}
+  const l=lawById(activeLawId);if(!l)return alert("Najpierw wybierz ustawę.");const s=window.getSelection(),txt=s?s.toString().trim():"";if(!txt)return alert("Najpierw zaznacz fragment tekstu ustawy.");l.summary=l.summary||[];l.summary.push({text:txt});saveLawObject(l).catch(e=>alert("Nie udało się zapisać: "+e.message));try{s.removeAllRanges()}catch(e){}
 }
 function clearLawSummary(){const l=lawById(activeLawId);if(l&&confirm("Wyczyścić podsumowanie tej ustawy?")){l.summary=[];saveLawObject(l).catch(e=>alert("Nie udało się zapisać: "+e.message))}}
-function showSummaryText(){
-  const l=lawById(activeLawId);if(!l)return;
-  const t=(l.summary||[]).map((x,i)=>`${i+1}. ${x.text}`).join("\n\n");
-  if(!t)return alert("Podsumowanie jest puste.");
-  $("summaryPanelBody").textContent=t;
-  $("summaryPanel").classList.add("open");
-  $("summaryPanel").scrollIntoView({behavior:"smooth",block:"nearest"});
+function showSummaryText(){const l=lawById(activeLawId);if(!l)return;const t=(l.summary||[]).map((x,i)=>`${i+1}. ${x.text}`).join("\n\n");if(!t)return alert("Podsumowanie jest puste.");const w=window.open("","_blank");if(w){w.document.write(`<meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(l.name)}</title><pre style="white-space:pre-wrap;font:16px/1.55 system-ui;padding:20px">${esc(t)}</pre>`);w.document.close()}}
+
+function openDB(){return new Promise((res,rej)=>{try{let r=indexedDB.open(MATDB,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE,{keyPath:"id"})};r.onsuccess=()=>{idb=r.result;res()};r.onerror=()=>rej(r.error)}catch(e){rej(e)}})}
+function allMat(){return new Promise((res,rej)=>{if(!idb)return res([]);let r=idb.transaction(STORE).objectStore(STORE).getAll();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>rej(r.error)})}
+function putMat(o){return new Promise((res,rej)=>{let r=idb.transaction(STORE,"readwrite").objectStore(STORE).put(o);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
+function deleteMaterial(id){return new Promise((res,rej)=>{if(!idb)return rej(new Error("Magazyn materiałów nie jest gotowy."));let r=idb.transaction(STORE,"readwrite").objectStore(STORE).delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
+async function renderMat(){let a=await allMat();$("matCount").textContent=a.length;$("matList").innerHTML=a.length?a.map(x=>`<p><b>${esc(x.name)}</b> <span class="tag">${esc(x.stage)}</span> <span class="tag">${esc(x.category)}</span> <button data-delmat="${x.id}" style="color:var(--bad);margin-left:8px">Usuń</button></p>`).join(""):'<span class="muted">Brak materiałów.</span>';document.querySelectorAll("[data-delmat]").forEach(b=>b.onclick=async()=>{if(!confirm("Usunąć ten materiał?"))return;try{await deleteMaterial(b.dataset.delmat);await renderMat();if($("helperWrap").classList.contains("open"))await renderHelp()}catch(e){alert("Nie udało się usunąć materiału: "+e.message)}})}
+async function renderHelp(){let a=await allMat(),c=$("helpCat").value,st=$("helpStage").value;a=a.filter(x=>(c==="Wszystkie"||x.category===c||x.category==="Pomoce")&&(st==="Wszystkie"||x.stage===st));$("helpList").innerHTML=a.length?a.map(x=>`<p><button data-openmat="${x.id}">Pokaż</button> <b>${esc(x.name)}</b></p>`).join(""):'<p class="muted">Brak materiałów dla filtra.</p>';document.querySelectorAll("[data-openmat]").forEach(b=>b.onclick=()=>showMat(b.dataset.openmat))}
+async function showMat(id){let a=await allMat(),x=a.find(y=>y.id===id);if(!x)return;if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl=URL.createObjectURL(x.blob);let img=(x.type||"").startsWith("image/")||/\.(jpg|jpeg|png|webp)$/i.test(x.name);if(img){$("viewer").innerHTML=`<div class="zoom"><button id="zm">−</button><b id="zv">100%</b><button id="zp">+</button><button id="zf">Dopasuj</button></div><img id="zi" src="${objectUrl}">`;let z=1,im=$("zi"),v=$("zv");let ap=()=>{im.style.width=(im.naturalWidth*z)+"px";v.textContent=Math.round(z*100)+"%"};im.onload=()=>{z=Math.min(1,($("viewer").clientWidth-10)/im.naturalWidth);ap()};$("zp").onclick=()=>{z=Math.min(4,z+.25);ap()};$("zm").onclick=()=>{z=Math.max(.15,z-.25);ap()};$("zf").onclick=()=>{z=Math.min(1,($("viewer").clientWidth-10)/im.naturalWidth);ap()}}else $("viewer").innerHTML=`<iframe src="${objectUrl}"></iframe>`}
+
+function blobToDataURL(blob){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res(r.result);
+    r.onerror=()=>rej(r.error);
+    r.readAsDataURL(blob);
+  });
 }
 function dataURLToBlob(dataURL){
   const parts=dataURL.split(",");
@@ -621,7 +519,6 @@ $("exportBackup").onclick=exportBackup;$("restoreBackup").onclick=restoreBackup;
 $("saveMat").onclick=async()=>{if(!idb)return $("matInfo").textContent="Magazyn materiałów jest niedostępny w tym trybie.";let fs=[...$("matFiles").files],n=0;for(const f of fs){await putMat({id:uid(),name:f.name,stage:$("matStage").value,category:$("matCat").value,type:f.type,size:f.size,blob:f});n++}$("matInfo").textContent=`Dodano ${n} materiałów.`;renderMat()};
 
 $("saveLaw").onclick=()=>addLaw().catch(e=>{$("lawInfo").textContent="Nie udało się dodać ustawy: "+e.message});
-$("closeSummaryPanel").onclick=()=>$("summaryPanel").classList.remove("open");
 $("addSelection").onclick=addLawSelection;$("clearLawSummary").onclick=clearLawSummary;$("showSummaryText").onclick=showSummaryText;$("deleteLaw").onclick=async()=>{const l=lawById(activeLawId);if(l&&confirm("Usunąć ustawę?")){try{await delLaw(l.id);activeLawId=null;await reloadLaws()}catch(e){alert("Nie udało się usunąć: "+e.message)}}};
 renderLawList();renderActiveLaw();openLawDB().then(reloadLaws).catch(e=>{$("lawInfo").textContent="Błąd trwałego magazynu ustaw: "+e.message});
 
